@@ -8,8 +8,10 @@ from app import (
     build_export_markdown,
     build_user_input,
     decode_uploaded_bytes,
+    display_report_content,
     evidence_counts,
     example_questions,
+    route_summary_caption,
     question_type_options,
     route_summary_items,
 )
@@ -138,6 +140,29 @@ def test_route_summary_items_include_selected_detected_and_final_type():
         "最终采用": "知识查询",
         "纠偏提示": "你选择了“故障分析”，但系统判断该问题更像“知识查询”，已按“知识查询”处理。",
     }
+
+
+def test_route_summary_caption_is_compact_text_for_report_footer():
+    context = AnalysisContext(
+        question="UE 不能上网",
+        question_type=QuestionType.FAULT,
+        selected_question_type=None,
+        detected_question_type=QuestionType.FAULT,
+    )
+
+    assert route_summary_caption(context) == "用户选择：自动识别；系统识别：故障分析；最终采用：故障分析"
+
+
+def test_display_report_content_removes_duplicate_leading_title():
+    content = "# 故障分析报告\n\n诊断结论：UPF N6 路由缺失。"
+
+    assert display_report_content("故障分析报告", content) == "诊断结论：UPF N6 路由缺失。"
+
+
+def test_display_report_content_keeps_non_duplicate_content():
+    content = "诊断结论：UPF N6 路由缺失。"
+
+    assert display_report_content("故障分析报告", content) == content
 
 
 def test_decode_uploaded_bytes_accepts_utf8_and_truncates_long_text():

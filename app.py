@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 
 import streamlit as st
 
@@ -127,6 +128,31 @@ def route_summary_items(context: AnalysisContext) -> dict[str, str]:
     return items
 
 
+def route_summary_caption(context: AnalysisContext) -> str:
+    items = route_summary_items(context)
+    parts = [
+        f"用户选择：{items['用户选择']}",
+        f"系统识别：{items['系统识别']}",
+        f"最终采用：{items['最终采用']}",
+    ]
+    if "纠偏提示" in items:
+        parts.append(f"提示：{items['纠偏提示']}")
+    return "；".join(parts)
+
+
+def display_report_content(report_title: str, content: str) -> str:
+    stripped_content = content.strip()
+    lines = stripped_content.splitlines()
+    if not lines:
+        return stripped_content
+
+    first_line = lines[0].strip()
+    heading_text = re.sub(r"^#+\s*", "", first_line).strip()
+    if heading_text == report_title:
+        return "\n".join(lines[1:]).lstrip()
+    return stripped_content
+
+
 def build_export_markdown(report: AgentReport) -> str:
     lines = [
         "# 5G 核心网 Agent 分析结果",
@@ -193,7 +219,7 @@ def main() -> None:
     st.sidebar.write(f"LLM Provider：{os.getenv('LLM_PROVIDER', 'openai_compatible')}")
     st.sidebar.write(f"LLM Model：{os.getenv('LLM_MODEL', 'gpt-4o-mini')}")
     st.sidebar.write(f"API Key：{_api_key_status()}")
-    st.sidebar.caption("在线模式优先；缺少 API Key 或在线调用失败时，将自动降级为离线兜底模式。")
+    st.sidebar.caption("在线模式优先；缺少 API Key 或在线调用失败时，将自动切换为离线模式。")
 
     question_type = st.selectbox(
         "问题类型",
@@ -242,12 +268,10 @@ def main() -> None:
         if report.mode == "online":
             st.success("在线模式")
         else:
-            st.success("离线兜底模式")
+            st.success("离线模式")
 
         if report.llm_error:
             st.info(f"降级原因：{report.llm_error}")
-        if report.context.route_warning:
-            st.warning(report.context.route_warning)
 
         report_col, evidence_col = st.columns(2)
         report_title = selected_report_title
@@ -256,12 +280,8 @@ def main() -> None:
 
         with report_col:
             st.subheader(report_title)
-            summary = route_summary_items(report.context)
-            summary_cols = st.columns(3)
-            summary_cols[0].metric("用户选择", summary["用户选择"])
-            summary_cols[1].metric("系统识别", summary["系统识别"])
-            summary_cols[2].metric("最终采用", summary["最终采用"])
-            st.markdown(report.content)
+            st.markdown(display_report_content(report_title, report.content))
+            st.caption(route_summary_caption(report.context))
 
         with evidence_col:
             st.subheader("证据区")
