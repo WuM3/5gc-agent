@@ -6,9 +6,13 @@ from agent.schemas import QuestionType, RouteDecision
 MANUAL_TYPE_MAP = {
     QuestionType.AUTO.value: None,
     QuestionType.KNOWLEDGE.value: QuestionType.KNOWLEDGE,
-    QuestionType.PROCEDURE.value: QuestionType.PROCEDURE,
     QuestionType.FAULT.value: QuestionType.FAULT,
-    QuestionType.LOG.value: QuestionType.LOG,
+    # Backward-compatible aliases for reports, tests, or old UI state.
+    "知识/流程查询": QuestionType.KNOWLEDGE,
+    "流程解释": QuestionType.KNOWLEDGE,
+    "故障/日志分析": QuestionType.FAULT,
+    "故障诊断": QuestionType.FAULT,
+    "日志分析": QuestionType.FAULT,
 }
 
 LOG_KEYWORDS = (
@@ -26,7 +30,24 @@ LOG_KEYWORDS = (
     "connection refused",
     "not found",
 )
-FAULT_KEYWORDS = ("失败", "异常", "不能", "无法", "排查", "故障", "ping", "不通", "注册成功但是")
+FAULT_KEYWORDS = (
+    "失败",
+    "异常",
+    "不能",
+    "无法",
+    "排查",
+    "故障",
+    "ping",
+    "不通",
+    "注册成功但是",
+    "配置",
+    "配置文件",
+    "amfcfg",
+    "smfcfg",
+    "upfcfg",
+    "yaml",
+    "json",
+)
 PROCEDURE_KEYWORDS = ("流程", "建立", "registration", "procedure", "经过哪些", "步骤")
 
 
@@ -43,11 +64,11 @@ def detect_question_type(question: str) -> QuestionType:
     text = question.lower()
 
     if any(keyword in text for keyword in LOG_KEYWORDS):
-        return QuestionType.LOG
+        return QuestionType.FAULT
     if any(keyword in text for keyword in FAULT_KEYWORDS):
         return QuestionType.FAULT
     if any(keyword in text for keyword in PROCEDURE_KEYWORDS):
-        return QuestionType.PROCEDURE
+        return QuestionType.KNOWLEDGE
     return QuestionType.KNOWLEDGE
 
 

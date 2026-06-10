@@ -10,6 +10,7 @@ from llm.llm_client import LLMClient
 from retrieval.case_base import FaultCaseBase
 from retrieval.knowledge_base import KnowledgeBase
 from retrieval.vector_store import HybridKnowledgeBase
+from rules.config_rules import ConfigRuleBase
 from rules.log_rules import LogRuleBase
 
 
@@ -28,6 +29,9 @@ class AgentPipeline:
                 self.root_dir / "data" / "fault_cases" / "fault_cases.json"
             ),
             rule_base=LogRuleBase(self.root_dir / "data" / "rules" / "log_rules.yaml"),
+            config_rule_base=ConfigRuleBase(
+                self.root_dir / "data" / "rules" / "config_rules.yaml"
+            ),
         )
         self.report_generator = ReportGenerator(llm_client or LLMClient())
         self.workflow = AgentWorkflow(self.analyzer, self.report_generator)

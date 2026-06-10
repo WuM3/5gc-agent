@@ -5,7 +5,12 @@ import os
 import streamlit as st
 
 from agent.pipeline import AgentPipeline
-from agent.report import format_case_hits, format_knowledge_hits, format_rule_hits
+from agent.report import (
+    format_case_hits,
+    format_config_rule_hits,
+    format_knowledge_hits,
+    format_rule_hits,
+)
 from agent.schemas import AgentReport, AnalysisContext, QuestionType
 from config import load_env_file
 
@@ -15,12 +20,11 @@ DEFAULT_QUESTION = ""
 QUESTION_STATE_KEY = "question"
 SHOW_EXAMPLE_BUTTONS = False
 MAX_UPLOAD_CHARS = 12000
+UPLOAD_ACCEPTED_TYPES = ["log", "txt", "json", "yaml", "yml"]
 ACTION_LABELS = {
     QuestionType.AUTO.value: ("生成回答", "回答结果", "正在生成回答..."),
-    QuestionType.KNOWLEDGE.value: ("生成知识回答", "知识回答", "正在生成知识回答..."),
-    QuestionType.PROCEDURE.value: ("生成流程说明", "流程说明", "正在生成流程说明..."),
-    QuestionType.FAULT.value: ("生成诊断报告", "诊断报告", "正在生成诊断报告..."),
-    QuestionType.LOG.value: ("分析日志", "日志分析结果", "正在分析日志..."),
+    QuestionType.KNOWLEDGE.value: ("生成查询回答", "知识回答", "正在生成查询回答..."),
+    QuestionType.FAULT.value: ("生成分析报告", "故障分析报告", "正在生成分析报告..."),
 }
 EXAMPLE_QUESTIONS = {
     QuestionType.AUTO.value: (
@@ -31,21 +35,11 @@ EXAMPLE_QUESTIONS = {
     QuestionType.KNOWLEDGE.value: (
         ("核心网概念", "什么是 5G 核心网？"),
         ("AMF 职责", "AMF 的主要作用是什么？"),
-        ("AMF/SMF 区别", "AMF 和 SMF 的区别是什么？"),
-    ),
-    QuestionType.PROCEDURE.value: (
-        ("UE 注册", "UE Registration 流程包括哪些步骤？"),
         ("PDU 会话", "PDU Session 建立流程经过哪些网元？"),
-        ("N4 建立", "N4 Session Establishment 的作用是什么？"),
     ),
     QuestionType.FAULT.value: (
         ("不能上网", "UE 注册成功但不能上网，应该怎么排查？"),
-        ("N4 失败", "SMF 与 UPF 之间 N4 Session Establishment 失败"),
-        ("鉴权失败", "UE Registration 被拒绝并且 AMF 显示鉴权失败"),
-    ),
-    QuestionType.LOG.value: (
         ("DNN 日志", "SMF 日志中出现 DNN not supported"),
-        ("切片不匹配", "SMF 日志出现 S-NSSAI mismatch"),
         ("PFCP 失败", "UPF 日志出现 PFCP session failure"),
     ),
 }
@@ -57,6 +51,10 @@ def _api_key_status() -> str:
 
 def action_labels(question_type: str) -> tuple[str, str, str]:
     return ACTION_LABELS.get(question_type, ACTION_LABELS[QuestionType.AUTO.value])
+
+
+def question_type_options() -> list[str]:
+    return [question_type.value for question_type in QuestionType]
 
 
 def example_questions(question_type: str) -> tuple[tuple[str, str], ...]:
@@ -106,6 +104,7 @@ def evidence_counts(context: AnalysisContext) -> dict[str, int]:
         "knowledge": len(context.knowledge_hits),
         "cases": len(context.case_hits),
         "rules": len(context.rule_hits),
+        "configs": len(context.config_rule_hits),
     }
 
 
@@ -160,6 +159,9 @@ def build_export_markdown(report: AgentReport) -> str:
             "## 命中的日志规则",
             format_rule_hits(report.context),
             "",
+            "## 命中的配置规则",
+            format_config_rule_hits(report.context),
+            "",
         ]
     )
     return "\n".join(lines)
@@ -195,31 +197,36 @@ def main() -> None:
 
     question_type = st.selectbox(
         "问题类型",
-        [question_type.value for question_type in QuestionType],
+        question_type_options(),
     )
     _render_example_buttons(question_type)
-    uploaded_file = st.file_uploader(
-        "上传日志/文本文件",
-        type=["log", "txt", "json", "yaml", "yml"],
-        accept_multiple_files=False,
-        help="支持上传日志、JSON 或 YAML 文本文件；文件内容会和问题描述一起分析。",
+    question = st.text_area(
+        "问题描述",
+        key=QUESTION_STATE_KEY,
+        placeholder="请输入 5G 核心网知识、流程、故障、日志或配置问题",
     )
+    button_label, selected_report_title, spinner_text = action_labels(question_type)
+
+    control_cols = st.columns([1.2, 1, 5])
+    with control_cols[0]:
+        run_clicked = st.button(button_label, type="primary", use_container_width=True)
+    with control_cols[1]:
+        with st.popover("上传文件", use_container_width=True):
+            uploaded_file = st.file_uploader(
+                "选择日志/文本文件",
+                type=UPLOAD_ACCEPTED_TYPES,
+                accept_multiple_files=False,
+                help="支持上传日志、JSON 或 YAML 文本文件；文件内容会和问题描述一起分析。",
+            )
+
     uploaded_text = None
-    upload_warning = None
     if uploaded_file is not None:
         uploaded_text, upload_warning = decode_uploaded_bytes(uploaded_file.getvalue())
         st.caption(f"已读取上传文件：{uploaded_file.name}")
         if upload_warning:
             st.warning(upload_warning)
 
-    question = st.text_area(
-        "问题描述",
-        key=QUESTION_STATE_KEY,
-        placeholder="请输入 5G 核心网知识、流程、故障或日志问题",
-    )
-    button_label, selected_report_title, spinner_text = action_labels(question_type)
-
-    if st.button(button_label, type="primary"):
+    if run_clicked:
         user_input = build_user_input(
             question,
             uploaded_text=uploaded_text,
@@ -259,16 +266,19 @@ def main() -> None:
         with evidence_col:
             st.subheader("证据区")
             counts = evidence_counts(report.context)
-            metric_cols = st.columns(3)
+            metric_cols = st.columns(4)
             metric_cols[0].metric("知识片段", counts["knowledge"])
             metric_cols[1].metric("故障案例", counts["cases"])
             metric_cols[2].metric("日志规则", counts["rules"])
+            metric_cols[3].metric("配置规则", counts["configs"])
             with st.expander("命中的知识片段", expanded=True):
                 st.text(format_knowledge_hits(report.context))
             with st.expander("命中的故障案例"):
                 st.text(format_case_hits(report.context))
             with st.expander("命中的日志规则"):
                 st.text(format_rule_hits(report.context))
+            with st.expander("命中的配置规则"):
+                st.text(format_config_rule_hits(report.context))
 
         st.download_button(
             "下载 Markdown 报告",

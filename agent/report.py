@@ -3,6 +3,7 @@ from __future__ import annotations
 from agent.schemas import (
     AgentReport,
     AnalysisContext,
+    ConfigRuleHit,
     FaultCaseHit,
     KnowledgeHit,
     LLMResult,
@@ -12,10 +13,8 @@ from agent.schemas import (
 
 
 PROMPT_TASKS = {
-    QuestionType.KNOWLEDGE: "请输出知识回答，包含概念解释、关键网元或接口、参考依据。",
-    QuestionType.PROCEDURE: "请输出流程说明，包含主要步骤、涉及网元、涉及接口和参考依据。",
-    QuestionType.FAULT: "请输出诊断报告，包含诊断结论、可能原因、建议排查步骤和参考依据。",
-    QuestionType.LOG: "请输出日志分析结果，包含日志含义、涉及网元或接口、可能原因、建议排查步骤和参考依据。",
+    QuestionType.KNOWLEDGE: "请输出知识回答，包含概念解释或流程步骤、关键网元或接口、参考依据。",
+    QuestionType.FAULT: "请输出故障分析报告，包含诊断结论、可能原因、建议排查步骤和参考依据。",
 }
 
 
@@ -54,6 +53,8 @@ def build_prompt(context: AnalysisContext) -> str:
         f"{format_case_hits(context.case_hits)}\n\n"
         "命中的日志规则\n"
         f"{format_rule_hits(context.rule_hits)}\n\n"
+        "命中的配置规则\n"
+        f"{format_config_rule_hits(context.config_rule_hits)}\n\n"
         f"{_prompt_task(context.question_type)}"
     )
 
@@ -74,36 +75,6 @@ def build_offline_report(
             ]
         )
 
-    if context.question_type == QuestionType.PROCEDURE:
-        return "\n".join(
-            [
-                f"问题类型：{context.question_type.value}",
-                *_route_report_lines(context),
-                f"流程说明：{_knowledge_answer(context)}",
-                f"涉及网元：{_join_values(context.network_functions, '请结合流程片段识别')}",
-                f"涉及接口：{_join_values(context.interfaces, '请结合流程片段识别')}",
-                f"参考依据：{_references(context)}",
-                "运行模式：offline",
-                f"降级原因：{_downgrade_reason(llm_result)}",
-            ]
-        )
-
-    if context.question_type == QuestionType.LOG:
-        return "\n".join(
-            [
-                f"问题类型：{context.question_type.value}",
-                *_route_report_lines(context),
-                f"涉及网元：{_join_values(context.network_functions, '未识别明确网元')}",
-                f"涉及接口：{_join_values(context.interfaces, '未识别明确接口')}",
-                f"日志分析结果：{_diagnosis(context)}",
-                f"可能原因：{_join_values(context.possible_causes, '暂无明确原因')}",
-                f"建议排查步骤：{_numbered_values(context.next_steps, '暂无明确步骤')}",
-                f"参考依据：{_references(context)}",
-                "运行模式：offline",
-                f"降级原因：{_downgrade_reason(llm_result)}",
-            ]
-        )
-
     return "\n".join(
         [
             f"问题类型：{context.question_type.value}",
@@ -111,6 +82,7 @@ def build_offline_report(
             f"涉及网元：{_join_values(context.network_functions, '未识别明确网元')}",
             f"涉及接口：{_join_values(context.interfaces, '未识别明确接口')}",
             f"诊断结论：{_diagnosis(context)}",
+            f"配置检查：{_config_diagnosis(context)}",
             f"可能原因：{_join_values(context.possible_causes, '暂无明确原因')}",
             f"建议排查步骤：{_numbered_values(context.next_steps, '暂无明确步骤')}",
             f"参考依据：{_references(context)}",
@@ -193,10 +165,28 @@ def format_rule_hits(source: AnalysisContext | list[LogRuleHit]) -> str:
     return "\n".join(lines)
 
 
+def format_config_rule_hits(source: AnalysisContext | list[ConfigRuleHit]) -> str:
+    hits = source.config_rule_hits if isinstance(source, AnalysisContext) else source
+    if not hits:
+        return "未命中配置规则"
+
+    lines: list[str] = []
+    for index, hit in enumerate(hits, start=1):
+        lines.append(
+            f"{index}. {hit.rule_id} {hit.title}（网元：{hit.nf}，接口：{hit.interface}，"
+            f"严重级别：{hit.severity}，分数：{hit.score}）\n"
+            f"   缺失项：{_join_values(hit.missing_items, '未提供')}\n"
+            f"   可能原因：{_join_values(hit.possible_causes, '未提供')}\n"
+            f"   建议步骤：{_join_values(hit.next_steps, '未提供')}\n"
+            f"   证据：{hit.evidence or '未提供'}"
+        )
+    return "\n".join(lines)
+
+
 def _diagnosis(context: AnalysisContext) -> str:
-    if context.question_type == QuestionType.LOG and context.rule_hits:
-        hit = context.rule_hits[0]
-        return f"优先匹配日志规则：{hit.keyword}"
+    if context.config_rule_hits:
+        hit = context.config_rule_hits[0]
+        return f"优先匹配配置规则 {hit.rule_id}：{hit.title}"
     if context.case_hits:
         hit = context.case_hits[0]
         return f"优先匹配故障案例 {hit.case_id}：{hit.title}"
@@ -215,6 +205,13 @@ def _knowledge_answer(context: AnalysisContext) -> str:
     return f"{hit.title}：{hit.snippet}"
 
 
+def _config_diagnosis(context: AnalysisContext) -> str:
+    if not context.config_rule_hits:
+        return "未命中配置规则"
+    hit = context.config_rule_hits[0]
+    return f"{hit.rule_id}：{hit.title}，缺失项：{_join_values(hit.missing_items, '未提供')}"
+
+
 def _prompt_task(question_type: QuestionType) -> str:
     return PROMPT_TASKS.get(question_type, "请输出回答，包含结论、依据和建议。")
 
@@ -229,6 +226,9 @@ def _references(context: AnalysisContext) -> str:
     )
     references.extend(
         f"规则：{hit.keyword}/{hit.nf}/{hit.interface}" for hit in context.rule_hits
+    )
+    references.extend(
+        f"配置规则：{hit.rule_id}/{hit.title}" for hit in context.config_rule_hits
     )
     return _join_values(references, "未命中参考依据")
 

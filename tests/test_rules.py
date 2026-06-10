@@ -36,7 +36,7 @@ def test_analyzer_merges_rule_context_with_retrieval_hits():
         rule_base=LogRuleBase(PROJECT_ROOT / "data" / "rules" / "log_rules.yaml"),
     )
 
-    context = analyzer.analyze("SMF 日志 DNN not supported", QuestionType.LOG)
+    context = analyzer.analyze("SMF 日志 DNN not supported", QuestionType.FAULT)
 
     assert "SMF" in context.network_functions
     assert "N11" in context.interfaces

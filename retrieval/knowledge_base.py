@@ -33,6 +33,7 @@ class KnowledgeBase:
         hits: list[KnowledgeHit] = []
         for section in self._sections:
             score = _score(query, section.title, section.body)
+            score += _source_boost(query, section.source)
             if score > 0:
                 hits.append(
                     KnowledgeHit(
@@ -97,6 +98,16 @@ def _score(query: str, title: str, body: str) -> int:
         score += 20
 
     return score
+
+
+def _source_boost(query: str, source: str) -> int:
+    if source != "core_network.md":
+        return 0
+
+    query_norm = query.casefold()
+    if any(term in query_norm for term in ("是什么", "区别", "作用", "职责")):
+        return 4
+    return 0
 
 
 def _tokens(text: str) -> list[str]:

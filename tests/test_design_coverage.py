@@ -5,6 +5,7 @@ import yaml
 
 from retrieval.case_base import FaultCaseBase
 from retrieval.knowledge_base import KnowledgeBase
+from rules.config_rules import ConfigRuleBase
 from rules.log_rules import LogRuleBase
 
 
@@ -53,6 +54,19 @@ def test_procedure_library_covers_design_procedures():
         assert expected_title in [hit.title for hit in hits]
 
 
+def test_knowledge_library_covers_amf_smf_upf_path_and_config_checks():
+    kb = KnowledgeBase(PROJECT_ROOT / "data" / "docs")
+
+    for query, expected_title in [
+        ("UE 从 gNB 到 DN 的上下行路径", "UE 到 DN 用户面路径"),
+        ("AMF N2 NGAP 配置检查", "AMF 与 gNB 接入配置检查"),
+        ("SMF UPF N4 PFCP 配置检查", "SMF 与 UPF 会话配置检查"),
+        ("UPF N3 N6 GTP-U 路由 NAT", "UPF 用户面转发配置检查"),
+    ]:
+        hits = kb.search(query, top_k=5)
+        assert expected_title in [hit.title for hit in hits]
+
+
 def test_fault_case_library_covers_design_faults():
     case_base = FaultCaseBase(PROJECT_ROOT / "data" / "fault_cases" / "fault_cases.json")
 
@@ -86,3 +100,22 @@ def test_log_rule_library_has_mvp_scale():
     data = yaml.safe_load(rules_path.read_text(encoding="utf-8"))
 
     assert len(data["rules"]) >= 8
+
+
+def test_config_rule_library_covers_amf_smf_upf_checks():
+    rule_base = ConfigRuleBase(PROJECT_ROOT / "data" / "rules" / "config_rules.yaml")
+
+    for config_text, expected_rule_id in [
+        ("上传文件：amfcfg.yaml\nconfiguration:\n  amfName: AMF\n", "CFG-AMF-001"),
+        ("上传文件：smfcfg.yaml\nconfiguration:\n  smfName: SMF\n", "CFG-SMF-001"),
+        ("上传文件：upfcfg.yaml\npfcp:\n  addr: 127.0.0.8\n", "CFG-UPF-001"),
+    ]:
+        hits = rule_base.check(config_text)
+        assert expected_rule_id in [hit.rule_id for hit in hits]
+
+
+def test_config_rule_library_has_course_mvp_scale():
+    rules_path = PROJECT_ROOT / "data" / "rules" / "config_rules.yaml"
+    data = yaml.safe_load(rules_path.read_text(encoding="utf-8"))
+
+    assert len(data["rules"]) >= 5

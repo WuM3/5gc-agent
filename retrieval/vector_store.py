@@ -350,6 +350,8 @@ def _tokens(text: str) -> list[str]:
         "服务注册",
         "服务发现",
         "故障诊断",
+        "故障分析",
+        "知识查询",
         "日志分析",
     )
     tokens.extend(term for term in domain_terms if term in normalized)

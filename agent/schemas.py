@@ -7,9 +7,7 @@ from enum import Enum
 class QuestionType(str, Enum):
     AUTO = "自动识别"
     KNOWLEDGE = "知识查询"
-    PROCEDURE = "流程解释"
-    FAULT = "故障诊断"
-    LOG = "日志分析"
+    FAULT = "故障分析"
 
 
 @dataclass(frozen=True)
@@ -55,6 +53,20 @@ class LogRuleHit:
 
 
 @dataclass(frozen=True)
+class ConfigRuleHit:
+    rule_id: str
+    title: str
+    nf: str
+    interface: str
+    severity: str
+    missing_items: list[str]
+    possible_causes: list[str]
+    next_steps: list[str]
+    evidence: str
+    score: int
+
+
+@dataclass(frozen=True)
 class AnalysisContext:
     question: str
     question_type: QuestionType
@@ -64,6 +76,7 @@ class AnalysisContext:
     knowledge_hits: list[KnowledgeHit] = field(default_factory=list)
     case_hits: list[FaultCaseHit] = field(default_factory=list)
     rule_hits: list[LogRuleHit] = field(default_factory=list)
+    config_rule_hits: list[ConfigRuleHit] = field(default_factory=list)
     network_functions: list[str] = field(default_factory=list)
     interfaces: list[str] = field(default_factory=list)
     possible_causes: list[str] = field(default_factory=list)

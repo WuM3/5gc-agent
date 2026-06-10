@@ -1,0 +1,146 @@
+rules:
+  - rule_id: CFG-AMF-001
+    title: AMF N2/NGAP 监听地址缺失
+    nf: AMF
+    file_keywords:
+      - amf
+      - amfcfg
+    interface: N2/NGAP
+    severity: high
+    score: 90
+    required_any_groups:
+      - label: AMF N2/NGAP 监听地址
+        terms:
+          - ngapIpList
+          - ngap
+          - n2
+    possible_causes:
+      - AMF 未配置对 gNB 开放的 NGAP/SCTP 地址
+      - gNB 配置的 AMF 地址和 AMF 实际监听地址不一致
+    next_steps:
+      - 检查 AMF 配置中的 ngapIpList 或 N2 监听地址
+      - 确认 gNB 能访问 AMF SCTP 38412 端口
+  - rule_id: CFG-AMF-002
+    title: AMF PLMN/TAI/S-NSSAI 支持项缺失
+    nf: AMF
+    file_keywords:
+      - amf
+      - amfcfg
+    interface: N1/N2
+    severity: medium
+    score: 86
+    required_any_groups:
+      - label: PLMN 配置
+        terms:
+          - plmn
+          - mcc
+          - mnc
+      - label: TAI/TAC 配置
+        terms:
+          - tai
+          - tac
+      - label: S-NSSAI 切片配置
+        terms:
+          - snssai
+          - sNssai
+          - snssaiList
+    possible_causes:
+      - UE/gNB 使用的 PLMN、TAC 或切片不在 AMF 支持范围内
+      - AMF 和 UERANSIM/Open5GS/free5GC 配置文件字段未对齐
+    next_steps:
+      - 对比 UE、gNB 和 AMF 的 MCC/MNC、TAC、SST/SD
+      - 如果使用 NSSF，继续检查切片选择结果
+  - rule_id: CFG-SMF-001
+    title: SMF 未配置 UPF/N4 用户面拓扑
+    nf: SMF
+    file_keywords:
+      - smf
+      - smfcfg
+    interface: N4/PFCP
+    severity: critical
+    score: 95
+    required_any_groups:
+      - label: UPF/N4 用户面拓扑
+        terms:
+          - userplaneInformation
+          - userplane
+          - upNodes
+          - upf
+          - pfcp
+          - n4
+    possible_causes:
+      - SMF 无法选择或发现 UPF，PDU Session 无法建立 N4 会话
+      - UPF Node ID、PFCP 地址或 user plane 拓扑未配置
+    next_steps:
+      - 检查 SMF userplaneInformation、upNodes、links 或 PFCP 节点配置
+      - 确认 SMF 能访问 UPF 的 PFCP/N4 地址
+  - rule_id: CFG-SMF-002
+    title: SMF DNN 或 S-NSSAI 支持项缺失
+    nf: SMF
+    file_keywords:
+      - smf
+      - smfcfg
+    interface: N11/N4
+    severity: high
+    score: 88
+    required_any_groups:
+      - label: DNN 配置
+        terms:
+          - dnn
+          - dnnInfos
+      - label: S-NSSAI 配置
+        terms:
+          - snssai
+          - sNssai
+          - snssaiInfos
+    possible_causes:
+      - UE 请求的 DNN 或切片不在 SMF 支持范围内
+      - AMF 选择的 SMF 和订阅数据中的 DNN/S-NSSAI 不匹配
+    next_steps:
+      - 对比 UE、订阅数据、AMF 和 SMF 中的 DNN、SST、SD
+      - 检查日志中是否出现 DNN not supported 或 S-NSSAI mismatch
+  - rule_id: CFG-UPF-001
+    title: UPF N3/GTP-U 地址缺失
+    nf: UPF
+    file_keywords:
+      - upf
+      - upfcfg
+    interface: N3/GTP-U
+    severity: high
+    score: 90
+    required_any_groups:
+      - label: N3/GTP-U 地址
+        terms:
+          - gtpu
+          - n3
+          - ifList
+    possible_causes:
+      - gNB 到 UPF 的 N3 GTP-U 隧道无法建立或数据面包无法到达 UPF
+      - UPF 没有配置对 RAN 可达的 GTP-U 地址
+    next_steps:
+      - 检查 UPF GTP-U/N3 地址、端口和网卡绑定
+      - 抓包确认 N3 上是否有 GTP-U 数据包到达 UPF
+  - rule_id: CFG-UPF-002
+    title: UPF N6 或 UE 地址池缺失
+    nf: UPF
+    file_keywords:
+      - upf
+      - upfcfg
+    interface: N6
+    severity: medium
+    score: 84
+    required_any_groups:
+      - label: UE 地址池或 N6 子网
+        terms:
+          - ueSubnet
+          - uePool
+          - subnet
+          - cidr
+          - dnn
+          - n6
+    possible_causes:
+      - UE 已注册但不能访问 DN，UPF 缺少 UE 地址池、N6 路由或 NAT 配置
+      - 返回路由没有指向 UPF 的 UE 地址池
+    next_steps:
+      - 检查 UPF 的 UE 子网、N6 网卡、默认路由和 NAT
+      - 对比 SMF 分配的 UE 地址池和 UPF/DN 侧路由

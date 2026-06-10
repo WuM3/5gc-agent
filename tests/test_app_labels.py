@@ -1,27 +1,35 @@
-from agent.schemas import AgentReport, AnalysisContext, KnowledgeHit, QuestionType
+from agent.schemas import AgentReport, AnalysisContext, ConfigRuleHit, KnowledgeHit, QuestionType
 from app import (
     DEFAULT_QUESTION,
     MAX_UPLOAD_CHARS,
     SHOW_EXAMPLE_BUTTONS,
+    UPLOAD_ACCEPTED_TYPES,
     action_labels,
     build_export_markdown,
     build_user_input,
     decode_uploaded_bytes,
     evidence_counts,
     example_questions,
+    question_type_options,
     route_summary_items,
 )
 
 
 def test_action_labels_change_for_selected_question_type():
-    assert action_labels("知识查询") == ("生成知识回答", "知识回答", "正在生成知识回答...")
-    assert action_labels("流程解释") == ("生成流程说明", "流程说明", "正在生成流程说明...")
-    assert action_labels("故障诊断") == ("生成诊断报告", "诊断报告", "正在生成诊断报告...")
-    assert action_labels("日志分析") == ("分析日志", "日志分析结果", "正在分析日志...")
+    assert action_labels("知识查询") == ("生成查询回答", "知识回答", "正在生成查询回答...")
+    assert action_labels("故障分析") == ("生成分析报告", "故障分析报告", "正在生成分析报告...")
 
 
 def test_action_labels_fall_back_to_general_answer_for_auto_type():
     assert action_labels("自动识别") == ("生成回答", "回答结果", "正在生成回答...")
+
+
+def test_question_type_options_are_merged_modes():
+    assert question_type_options() == ["自动识别", "知识查询", "故障分析"]
+
+
+def test_upload_accepted_types_are_text_or_log_formats():
+    assert UPLOAD_ACCEPTED_TYPES == ["log", "txt", "json", "yaml", "yml"]
 
 
 def test_question_input_default_is_empty():
@@ -30,7 +38,7 @@ def test_question_input_default_is_empty():
 
 def test_example_questions_change_with_selected_question_type():
     knowledge_examples = example_questions("知识查询")
-    log_examples = example_questions("日志分析")
+    log_examples = example_questions("故障分析")
 
     assert knowledge_examples
     assert log_examples
@@ -61,6 +69,7 @@ def test_evidence_counts_report_hit_totals():
         "knowledge": 1,
         "cases": 0,
         "rules": 0,
+        "configs": 0,
     }
 
 
@@ -70,13 +79,27 @@ def test_build_export_markdown_includes_answer_and_evidence_sections():
         question_type=QuestionType.KNOWLEDGE,
         selected_question_type=QuestionType.FAULT,
         detected_question_type=QuestionType.KNOWLEDGE,
-        route_warning="你选择了“故障诊断”，但系统判断该问题更像“知识查询”，已按“知识查询”处理。",
+        route_warning="你选择了“故障分析”，但系统判断该问题更像“知识查询”，已按“知识查询”处理。",
         knowledge_hits=[
             KnowledgeHit(
                 title="AMF 接入与移动性管理功能",
                 source="core_network.md",
                 snippet="AMF 负责 UE 注册和移动性管理。",
                 score=10,
+            )
+        ],
+        config_rule_hits=[
+            ConfigRuleHit(
+                rule_id="CFG-AMF-001",
+                title="AMF N2/NGAP 监听地址缺失",
+                nf="AMF",
+                interface="N2/NGAP",
+                severity="high",
+                missing_items=["NGAP 监听地址"],
+                possible_causes=["amfcfg.yaml 未配置 ngapIpList"],
+                next_steps=["检查 AMF N2 地址是否和 gNB 配置一致"],
+                evidence="amfcfg.yaml",
+                score=80,
             )
         ],
     )
@@ -91,11 +114,13 @@ def test_build_export_markdown_includes_answer_and_evidence_sections():
     assert "# 5G 核心网 Agent 分析结果" in markdown
     assert "AMF 负责接入和移动性管理。" in markdown
     assert "系统识别类型：知识查询" in markdown
-    assert "用户选择类型：故障诊断" in markdown
+    assert "用户选择类型：故障分析" in markdown
     assert "模式提示" in markdown
     assert "## 命中的知识片段" in markdown
     assert "## 命中的故障案例" in markdown
     assert "## 命中的日志规则" in markdown
+    assert "## 命中的配置规则" in markdown
+    assert "CFG-AMF-001" in markdown
 
 
 def test_route_summary_items_include_selected_detected_and_final_type():
@@ -104,14 +129,14 @@ def test_route_summary_items_include_selected_detected_and_final_type():
         question_type=QuestionType.KNOWLEDGE,
         selected_question_type=QuestionType.FAULT,
         detected_question_type=QuestionType.KNOWLEDGE,
-        route_warning="你选择了“故障诊断”，但系统判断该问题更像“知识查询”，已按“知识查询”处理。",
+        route_warning="你选择了“故障分析”，但系统判断该问题更像“知识查询”，已按“知识查询”处理。",
     )
 
     assert route_summary_items(context) == {
-        "用户选择": "故障诊断",
+        "用户选择": "故障分析",
         "系统识别": "知识查询",
         "最终采用": "知识查询",
-        "纠偏提示": "你选择了“故障诊断”，但系统判断该问题更像“知识查询”，已按“知识查询”处理。",
+        "纠偏提示": "你选择了“故障分析”，但系统判断该问题更像“知识查询”，已按“知识查询”处理。",
     }
 
 
