@@ -1,0 +1,137 @@
+rules:
+  - keyword: DNN not supported
+    patterns:
+      - DNN not supported
+      - DNN internet is not supported
+      - requested DNN is not supported
+    nf: SMF
+    interface: N11
+    severity: high
+    possible_causes:
+      - Requested DNN is missing from subscriber data
+      - DNN and S-NSSAI are not allowed for the subscriber
+      - SMF local DNN configuration is missing or inconsistent
+    next_steps:
+      - Check DNN, S-NSSAI, and SUPI in the N11 request
+      - Verify subscriber data in UDM or UDR
+      - Confirm SMF DNN and slice configuration
+  - keyword: S-NSSAI mismatch
+    patterns:
+      - S-NSSAI mismatch
+      - SNSSAI mismatch
+      - slice not allowed
+      - slice selection mismatch
+    nf: SMF
+    interface: N11
+    severity: high
+    possible_causes:
+      - Requested S-NSSAI is not part of the subscriber slice profile
+      - AMF selected a slice that the SMF cannot serve
+      - NSSF or local slice mapping is inconsistent
+    next_steps:
+      - Compare requested S-NSSAI with subscriber slice data
+      - Check AMF and SMF slice support configuration
+      - Review NSSF selection results if NSSF is deployed
+  - keyword: PFCP session failure
+    patterns:
+      - PFCP session failure
+      - PFCP Session Establishment failure
+      - N4 Session Establishment failure
+      - PFCP association failed
+    nf: UPF
+    interface: N4
+    severity: critical
+    possible_causes:
+      - SMF cannot reach the UPF PFCP endpoint
+      - UPF rejects requested PDR or FAR rules
+      - Node ID or N4 address configuration is inconsistent
+    next_steps:
+      - Check PFCP connectivity between SMF and UPF
+      - Inspect N4 Session Establishment Response cause values
+      - Verify UPF node ID and N4 address configuration
+  - keyword: N6 route or NAT
+    patterns:
+      - N6 route
+      - NAT error
+      - cannot ping internet
+      - cannot access internet
+      - registered but cannot ping
+    nf: UPF
+    interface: N6
+    severity: medium
+    possible_causes:
+      - UPF has no valid N6 route to the data network
+      - NAT or firewall policy does not allow the UE address pool
+      - Return route for the UE address pool is missing
+    next_steps:
+      - Check UPF N6 default route and return route
+      - Confirm NAT rules for the UE address pool
+      - Capture N3 and N6 traffic to find where packets stop
+  - keyword: NRF discovery failure
+    patterns:
+      - NRF discovery failed
+      - NF discovery failed
+      - no available NF instance
+      - service discovery failed
+    nf: NRF
+    interface: Nnrf_NFDiscovery
+    severity: high
+    possible_causes:
+      - Target network function is not registered in NRF
+      - NRF URI, SBI scheme, or service name is inconsistent
+      - NF profile or heartbeat status is unhealthy
+    next_steps:
+      - Check target NF registration status in NRF
+      - Verify NRF URI and SBI scheme in the caller configuration
+      - Review NRF discovery request and response logs
+  - keyword: NGAP SCTP connection failure
+    patterns:
+      - NGAP SCTP connection refused
+      - SCTP connection refused
+      - NGAP connection failed
+      - SCTP reset
+    nf: AMF
+    interface: N2
+    severity: critical
+    possible_causes:
+      - AMF N2 SCTP address or port is unreachable
+      - gNB AMF address configuration is incorrect
+      - Firewall or host kernel blocks SCTP traffic
+    next_steps:
+      - Confirm AMF listens on SCTP port 38412
+      - Verify gNB AMF address and PLMN/TAI configuration
+      - Check firewall and SCTP kernel support
+  - keyword: Subscriber data missing
+    patterns:
+      - subscriber data not found
+      - MongoDB subscriber data not found
+      - SUPI not found
+      - UDM subscription not found
+    nf: UDM
+    interface: N8/N10
+    severity: high
+    possible_causes:
+      - Subscriber record is missing in MongoDB or UDR
+      - SUPI, DNN, or S-NSSAI differs from UE request
+      - UDM or UDR cannot access the database
+    next_steps:
+      - Check subscriber data in WebConsole or MongoDB
+      - Compare SUPI, DNN, S-NSSAI, and PLMN with UE configuration
+      - Review UDM/UDR database connection logs
+  - keyword: DNS or endpoint configuration failure
+    patterns:
+      - DNS lookup failed
+      - invalid endpoint
+      - connection timeout
+      - no such host
+    nf: NRF
+    interface: SBI
+    severity: medium
+    possible_causes:
+      - NF service address or hostname is configured incorrectly
+      - DNS cannot resolve the configured hostname
+      - Container or VM network mapping is inconsistent
+    next_steps:
+      - Verify SBI endpoint addresses in NF configuration files
+      - Use curl, ping, or nslookup to test connectivity
+      - Check container, VM, or host port mapping

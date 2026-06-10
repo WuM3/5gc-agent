@@ -1,0 +1,349 @@
+[
+  {
+    "case_id": "FC-001",
+    "title": "UE registration rejected during authentication",
+    "issue_type": "registration_failure",
+    "keywords": ["UE", "registration reject", "AMF", "AUSF", "UDM", "鉴权失败"],
+    "symptoms": [
+      "UE 收到 Registration Reject",
+      "AMF 日志显示鉴权或订阅数据获取失败"
+    ],
+    "network_functions": ["AMF", "AUSF", "UDM"],
+    "interfaces": ["N12", "N8"],
+    "possible_causes": [
+      "SUPI/SUCI 与 UDM 订阅数据不一致",
+      "AUSF 或 UDM 未向 NRF 正确注册",
+      "AMF 选择了错误的鉴权服务实例"
+    ],
+    "next_steps": [
+      "检查 AMF 到 AUSF 的 N12 调用结果",
+      "核对 UDM 中的用户签约数据",
+      "确认 AUSF/UDM 在 NRF 中处于可发现状态"
+    ],
+    "evidence": "Registration Reject with authentication failure in AMF trace."
+  },
+  {
+    "case_id": "FC-002",
+    "title": "UE registration fails because PLMN or TAI is inconsistent",
+    "issue_type": "registration_failure",
+    "keywords": ["UE", "registration", "PLMN", "TAI", "GUAMI", "gNB", "AMF", "注册失败"],
+    "symptoms": [
+      "UERANSIM UE 无法完成注册",
+      "AMF 或 gNB 日志出现 PLMN、TAI、GUAMI 不匹配"
+    ],
+    "network_functions": ["UE", "gNB", "AMF"],
+    "interfaces": ["N1", "N2"],
+    "possible_causes": [
+      "UE/gNB 配置的 MCC/MNC 与 AMF 支持的 PLMN 不一致",
+      "gNB 的 TAI 未包含在 AMF supportTaiList 中",
+      "AMF GUAMI 配置与接入侧配置不一致"
+    ],
+    "next_steps": [
+      "核对 ue.yaml、gnb.yaml、amfcfg.yaml 中的 MCC/MNC",
+      "检查 AMF supportTaiList 与 gNB TAI",
+      "确认 GUAMI、regionId、setId、pointer 等字段一致"
+    ],
+    "evidence": "Registration fails before authentication when access identifiers do not match AMF serving area."
+  },
+  {
+    "case_id": "FC-003",
+    "title": "AMF cannot register to NRF",
+    "issue_type": "service_registration_failure",
+    "keywords": ["AMF", "NRF", "register", "registration", "无法注册", "服务注册"],
+    "symptoms": [
+      "AMF 启动后无法向 NRF 注册",
+      "AMF 日志出现 NRF registration failed 或 connection refused"
+    ],
+    "network_functions": ["AMF", "NRF"],
+    "interfaces": ["Nnrf_NFManagement"],
+    "possible_causes": [
+      "AMF 中配置的 NRF URI 错误",
+      "NRF 服务未启动或监听地址不可达",
+      "SBI scheme、端口或 TLS 配置不一致"
+    ],
+    "next_steps": [
+      "检查 NRF 进程和监听端口",
+      "核对 amfcfg.yaml 中的 nrfUri、sbi 地址和端口",
+      "查看 NRF 是否收到 AMF NFRegister 请求"
+    ],
+    "evidence": "NF registration failure prevents other network functions from discovering AMF service state."
+  },
+  {
+    "case_id": "FC-004",
+    "title": "SMF cannot discover UPF or user-plane node",
+    "issue_type": "service_discovery_failure",
+    "keywords": ["SMF", "UPF", "NRF", "discover", "无法发现", "user-plane"],
+    "symptoms": [
+      "SMF 无法选择 UPF",
+      "PDU Session 建立时提示 no available UPF 或 user-plane node not found"
+    ],
+    "network_functions": ["SMF", "UPF", "NRF"],
+    "interfaces": ["Nnrf_NFDiscovery", "N4"],
+    "possible_causes": [
+      "UPF 未注册或未被 SMF 配置为可用 user-plane node",
+      "SMF user-plane 配置中的 DNN/S-NSSAI 与 UPF 不匹配",
+      "NRF 中没有可发现的 UPF 或 NF profile 不完整"
+    ],
+    "next_steps": [
+      "检查 SMF user-plane information 配置",
+      "确认 UPF 是否启动并可被 SMF 选择",
+      "核对 DNN、S-NSSAI、UPF Node ID 和 N4 地址"
+    ],
+    "evidence": "SMF must select a valid UPF before N4 session establishment can proceed."
+  },
+  {
+    "case_id": "FC-005",
+    "title": "SMF reports DNN not supported during PDU Session Establishment",
+    "issue_type": "session_establishment_failure",
+    "keywords": ["SMF", "DNN", "DNN not supported", "PDU Session", "N11"],
+    "symptoms": [
+      "SMF 日志出现 DNN not supported",
+      "AMF 通过 N11 发起的 PDU Session Establishment 被拒绝",
+      "UE 注册成功但无法建立目标 DNN 的 PDU Session"
+    ],
+    "network_functions": ["SMF", "AMF"],
+    "interfaces": ["N11"],
+    "possible_causes": [
+      "UE 请求的 DNN 不在用户订阅中",
+      "DNN 与 S-NSSAI 切片组合不匹配",
+      "SMF 本地 DNN 配置缺失或大小写不一致"
+    ],
+    "next_steps": [
+      "检查 N11 请求中的 DNN、S-NSSAI 和 SUPI",
+      "核对 UDM/UDR 订阅中的允许 DNN",
+      "确认 SMF 本地 DNN 和切片配置"
+    ],
+    "evidence": "SMF log: DNN not supported for requested PDU Session on N11."
+  },
+  {
+    "case_id": "FC-006",
+    "title": "N4 session establishment fails between SMF and UPF",
+    "issue_type": "user_plane_setup_failure",
+    "keywords": ["N4", "SMF", "UPF", "PFCP", "Session Establishment"],
+    "symptoms": [
+      "SMF 无法完成 N4 Session Establishment",
+      "UPF 未生成对应 PDR/FAR 转发规则"
+    ],
+    "network_functions": ["SMF", "UPF"],
+    "interfaces": ["N4"],
+    "possible_causes": [
+      "UPF PFCP 地址或端口配置错误",
+      "SMF 与 UPF 之间网络不可达",
+      "UPF 不支持请求中的用户面能力"
+    ],
+    "next_steps": [
+      "检查 SMF 到 UPF 的 PFCP 连通性",
+      "确认 UPF 节点 ID 和 N4 地址配置",
+      "查看 UPF 对 N4 Session Establishment Request 的响应原因"
+    ],
+    "evidence": "PFCP Association is available but N4 Session Establishment Response reports failure."
+  },
+  {
+    "case_id": "FC-007",
+    "title": "PDU Session fails because S-NSSAI is not allowed",
+    "issue_type": "session_establishment_failure",
+    "keywords": ["S-NSSAI", "SNSSAI", "slice", "切片", "not allowed", "SMF", "NSSF"],
+    "symptoms": [
+      "PDU Session 建立被拒绝",
+      "日志出现 S-NSSAI mismatch、slice not allowed 或 selected slice unavailable"
+    ],
+    "network_functions": ["UE", "AMF", "NSSF", "SMF", "UDM"],
+    "interfaces": ["N1", "N11", "N22", "N10"],
+    "possible_causes": [
+      "UE 请求的 S-NSSAI 不在订阅数据中",
+      "AMF/NSSF 切片选择结果与 SMF 支持范围不一致",
+      "DNN 与 S-NSSAI 映射缺失"
+    ],
+    "next_steps": [
+      "核对 UE configured-nssai 与 subscriber slice 配置",
+      "检查 AMF、NSSF、SMF 的 S-NSSAI 支持列表",
+      "确认 DNN 与切片映射是否一致"
+    ],
+    "evidence": "Slice selection and subscriber data must allow the requested S-NSSAI before SMF can establish a PDU Session."
+  },
+  {
+    "case_id": "FC-008",
+    "title": "UE 注册成功但不能上网",
+    "issue_type": "internet_connectivity_failure",
+    "keywords": ["UE", "注册成功", "不能上网", "无互联网", "N6", "UPF", "PDU Session"],
+    "symptoms": [
+      "UE Registration 成功",
+      "PDU Session 看似已建立但 UE 不能访问互联网",
+      "UPF 到外部数据网络没有有效转发"
+    ],
+    "network_functions": ["AMF", "SMF", "UPF"],
+    "interfaces": ["N6", "N3", "N4"],
+    "possible_causes": [
+      "UPF 到 DN 的 N6 路由缺失",
+      "NAT 或防火墙策略未放通 UE 地址池",
+      "SMF 下发到 UPF 的转发规则与数据网络不匹配"
+    ],
+    "next_steps": [
+      "检查 UPF N6 默认路由和回程路由",
+      "确认 UE 地址池是否经过 NAT 出口",
+      "抓取 N3/N6 数据包判断流量是否离开 UPF"
+    ],
+    "evidence": "Registration Accept is present, but N6 packet capture shows no outbound internet traffic."
+  },
+  {
+    "case_id": "FC-009",
+    "title": "N3 GTP-U tunnel is unreachable between gNB and UPF",
+    "issue_type": "user_plane_connectivity_failure",
+    "keywords": ["N3", "GTP-U", "gNB", "UPF", "隧道不通", "packet loss"],
+    "symptoms": [
+      "PDU Session 建立后 UE 仍无法传输用户面流量",
+      "gNB 到 UPF 的 GTP-U 数据包不可达或无响应"
+    ],
+    "network_functions": ["gNB", "UPF", "SMF"],
+    "interfaces": ["N3", "N4"],
+    "possible_causes": [
+      "gNB 配置的 UPF N3 地址错误",
+      "UPF N3 监听地址不可达",
+      "防火墙未放通 UDP 2152"
+    ],
+    "next_steps": [
+      "检查 gNB 与 UPF 的 N3 IP 连通性",
+      "确认 UPF N3 监听地址与 SMF 下发的 FAR/PDR 一致",
+      "抓包检查 GTP-U 是否到达 UPF"
+    ],
+    "evidence": "N3 carries GTP-U user-plane traffic, so N3 failure breaks data forwarding even when control-plane procedures succeed."
+  },
+  {
+    "case_id": "FC-010",
+    "title": "N6 route or NAT is missing on UPF",
+    "issue_type": "data_network_connectivity_failure",
+    "keywords": ["N6", "NAT", "route", "UPF", "DN", "路由", "防火墙"],
+    "symptoms": [
+      "UE 可获得 IP 地址但无法访问外部网络",
+      "UPF N6 侧没有出站或回程流量"
+    ],
+    "network_functions": ["UPF", "DN"],
+    "interfaces": ["N6"],
+    "possible_causes": [
+      "UPF 默认路由缺失",
+      "NAT 未覆盖 UE 地址池",
+      "外部网络没有返回 UE 地址池的回程路由"
+    ],
+    "next_steps": [
+      "检查 UPF 的默认路由和数据网络路由",
+      "确认 NAT 或防火墙规则覆盖 UE 地址池",
+      "在 N6 侧抓包确认 ICMP/TCP 流量是否离开 UPF"
+    ],
+    "evidence": "N6 connects UPF to the external data network and is required for internet access."
+  },
+  {
+    "case_id": "FC-011",
+    "title": "UERANSIM gNB cannot connect to AMF over NGAP SCTP",
+    "issue_type": "ran_core_connectivity_failure",
+    "keywords": ["UERANSIM", "gNB", "AMF", "SCTP", "NGAP", "连不上", "connection refused"],
+    "symptoms": [
+      "UERANSIM gNB 启动后无法连接 AMF",
+      "日志出现 SCTP connection refused、NGAP connection failed"
+    ],
+    "network_functions": ["gNB", "AMF"],
+    "interfaces": ["N2", "NGAP", "SCTP"],
+    "possible_causes": [
+      "AMF N2 监听地址或端口配置错误",
+      "gNB 配置的 AMF 地址不可达",
+      "SCTP 协议未启用或被防火墙拦截"
+    ],
+    "next_steps": [
+      "检查 AMF 是否监听 SCTP 38412",
+      "核对 gNB 中的 amfConfigs 地址",
+      "检查主机防火墙和 SCTP 内核模块"
+    ],
+    "evidence": "N2 uses NGAP over SCTP, so SCTP connectivity is a prerequisite for registration."
+  },
+  {
+    "case_id": "FC-012",
+    "title": "AMF NGAP SCTP connection resets during UE registration",
+    "issue_type": "ran_core_signaling_failure",
+    "keywords": ["AMF", "NGAP", "SCTP", "reset", "N2", "连接异常"],
+    "symptoms": [
+      "UE 注册过程中 N2 连接中断",
+      "AMF 日志显示 NGAP SCTP reset 或 UE context setup failure"
+    ],
+    "network_functions": ["gNB", "AMF"],
+    "interfaces": ["N2", "NGAP", "SCTP"],
+    "possible_causes": [
+      "gNB 与 AMF 之间网络抖动",
+      "gNB ID、TAI 或 PLMN 配置不一致",
+      "AMF 过载或异常重启"
+    ],
+    "next_steps": [
+      "查看 AMF 与 gNB 两侧的 SCTP/NGAP 日志",
+      "核对 gNB ID、TAI、PLMN 配置",
+      "检查 AMF 进程稳定性和资源占用"
+    ],
+    "evidence": "NGAP SCTP reset interrupts N2 signaling and prevents UE context procedures from completing."
+  },
+  {
+    "case_id": "FC-013",
+    "title": "MongoDB subscriber data is missing",
+    "issue_type": "subscriber_data_failure",
+    "keywords": ["MongoDB", "subscriber", "UDR", "UDM", "用户数据", "缺失", "not found"],
+    "symptoms": [
+      "UDM/UDR 查询不到 SUPI 或订阅数据",
+      "AMF/SMF 日志出现 subscriber data not found"
+    ],
+    "network_functions": ["UDM", "UDR", "AMF", "SMF"],
+    "interfaces": ["N8", "N10"],
+    "possible_causes": [
+      "MongoDB 中未导入对应 subscriber",
+      "SUPI、PLMN、DNN 或 S-NSSAI 与 UE 请求不一致",
+      "UDR/UDM 连接数据库失败"
+    ],
+    "next_steps": [
+      "检查 WebConsole 或数据库中的 subscriber 记录",
+      "核对 SUPI、DNN、S-NSSAI 和 PLMN",
+      "查看 UDM/UDR 到 MongoDB 的连接日志"
+    ],
+    "evidence": "Subscriber data is required for authentication and session authorization."
+  },
+  {
+    "case_id": "FC-014",
+    "title": "WebConsole subscriber configuration is incorrect",
+    "issue_type": "subscriber_configuration_failure",
+    "keywords": ["WebConsole", "subscriber", "配置错误", "DNN", "S-NSSAI", "SUPI"],
+    "symptoms": [
+      "UE 能注册但 PDU Session 建立失败",
+      "WebConsole 中 DNN、切片或 SUPI 配置与 UE 请求不一致"
+    ],
+    "network_functions": ["UDM", "UDR", "SMF"],
+    "interfaces": ["N10", "N11"],
+    "possible_causes": [
+      "subscriber 中缺少 UE 请求的 DNN",
+      "S-NSSAI 配置不完整或 SD/SST 填写错误",
+      "SUPI 与 UE 配置不一致"
+    ],
+    "next_steps": [
+      "在 WebConsole 中核对 SUPI、DNN、S-NSSAI",
+      "保存配置后确认 UDR/UDM 已读取最新数据",
+      "重新发起 PDU Session 并观察 SMF 日志"
+    ],
+    "evidence": "Incorrect subscriber configuration is a common cause of DNN and slice authorization failures."
+  },
+  {
+    "case_id": "FC-015",
+    "title": "DNS or IP address configuration is inconsistent",
+    "issue_type": "basic_network_configuration_failure",
+    "keywords": ["DNS", "IP", "地址配置", "配置错误", "解析失败", "endpoint"],
+    "symptoms": [
+      "网元之间通过域名或服务地址访问失败",
+      "日志出现 DNS lookup failed、connection timeout 或 invalid endpoint"
+    ],
+    "network_functions": ["AMF", "SMF", "NRF", "UPF", "UDM"],
+    "interfaces": ["SBI", "N4", "N6"],
+    "possible_causes": [
+      "配置文件中使用了错误的 IP 或主机名",
+      "DNS 无法解析网元服务地址",
+      "容器网络、虚拟机网络或端口映射不一致"
+    ],
+    "next_steps": [
+      "检查各网元配置中的 SBI、N4、N6 地址",
+      "用 ping、curl 或 nslookup 验证地址解析和连通性",
+      "确认 Docker、虚拟机或主机网络的端口映射"
+    ],
+    "evidence": "Incorrect endpoint or DNS configuration can break service registration, discovery, and user-plane setup."
+  }
+]

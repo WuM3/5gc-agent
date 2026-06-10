@@ -1,0 +1,122 @@
+[
+  {
+    "id": "K-001",
+    "type": "knowledge",
+    "question": "什么是 5G 核心网？",
+    "expected_focus": ["5GC", "控制面", "用户面", "SBA"]
+  },
+  {
+    "id": "K-002",
+    "type": "knowledge",
+    "question": "AMF 的主要作用是什么？",
+    "expected_focus": ["注册", "移动性管理", "NAS"]
+  },
+  {
+    "id": "K-003",
+    "type": "knowledge",
+    "question": "SMF 和 UPF 的关系是什么？",
+    "expected_focus": ["PDU Session", "N4", "用户面"]
+  },
+  {
+    "id": "K-004",
+    "type": "knowledge",
+    "question": "NRF 的作用是什么？",
+    "expected_focus": ["服务注册", "服务发现", "NF Profile"]
+  },
+  {
+    "id": "K-005",
+    "type": "knowledge",
+    "question": "N1、N2、N3、N4、N6 分别是什么接口？",
+    "expected_focus": ["NAS", "NGAP", "GTP-U", "PFCP", "DN"]
+  },
+  {
+    "id": "P-001",
+    "type": "procedure",
+    "question": "UE Registration 流程包括哪些步骤？",
+    "expected_focus": ["Registration Request", "AMF", "AUSF", "UDM"]
+  },
+  {
+    "id": "P-002",
+    "type": "procedure",
+    "question": "PDU Session 建立流程经过哪些网元？",
+    "expected_focus": ["AMF", "SMF", "UPF", "N11", "N4"]
+  },
+  {
+    "id": "P-003",
+    "type": "procedure",
+    "question": "N4 Session Establishment 的作用是什么？",
+    "expected_focus": ["SMF", "UPF", "PFCP", "PDR", "FAR"]
+  },
+  {
+    "id": "P-004",
+    "type": "procedure",
+    "question": "Service Request 流程为什么需要恢复用户面资源？",
+    "expected_focus": ["空闲态", "AMF", "SMF", "UPF"]
+  },
+  {
+    "id": "P-005",
+    "type": "procedure",
+    "question": "NRF Registration and Discovery 流程有什么作用？",
+    "expected_focus": ["NF 注册", "服务发现", "SBA"]
+  },
+  {
+    "id": "F-001",
+    "type": "fault",
+    "question": "UE 注册失败并且 AMF 显示鉴权失败，应该怎么排查？",
+    "expected_focus": ["AUSF", "UDM", "SUPI", "N12"]
+  },
+  {
+    "id": "F-002",
+    "type": "fault",
+    "question": "AMF 无法注册到 NRF，可能是什么原因？",
+    "expected_focus": ["NRF URI", "SBI", "NFRegister"]
+  },
+  {
+    "id": "F-003",
+    "type": "fault",
+    "question": "SMF 无法发现 UPF，PDU Session 建立失败。",
+    "expected_focus": ["SMF", "UPF", "NRF", "user-plane"]
+  },
+  {
+    "id": "F-004",
+    "type": "fault",
+    "question": "UE 注册成功但不能上网，应该怎么排查？",
+    "expected_focus": ["N3", "N4", "N6", "UPF", "NAT"]
+  },
+  {
+    "id": "F-005",
+    "type": "fault",
+    "question": "UERANSIM gNB 连不上 AMF，日志里有 SCTP connection refused。",
+    "expected_focus": ["gNB", "AMF", "N2", "SCTP"]
+  },
+  {
+    "id": "F-006",
+    "type": "fault",
+    "question": "MongoDB 用户数据缺失会导致哪些注册或会话问题？",
+    "expected_focus": ["UDM", "UDR", "subscriber", "SUPI"]
+  },
+  {
+    "id": "L-001",
+    "type": "log",
+    "question": "[SMF] DNN internet is not supported",
+    "expected_focus": ["DNN", "S-NSSAI", "subscriber"]
+  },
+  {
+    "id": "L-002",
+    "type": "log",
+    "question": "[SMF] S-NSSAI mismatch for requested slice",
+    "expected_focus": ["slice", "NSSF", "SMF"]
+  },
+  {
+    "id": "L-003",
+    "type": "log",
+    "question": "[UPF] PFCP Session Establishment failure",
+    "expected_focus": ["PFCP", "N4", "UPF"]
+  },
+  {
+    "id": "L-004",
+    "type": "log",
+    "question": "[AMF] NRF discovery failed for AUSF service",
+    "expected_focus": ["NRF", "AUSF", "服务发现"]
+  }
+]

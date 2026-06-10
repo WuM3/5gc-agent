@@ -114,4 +114,3 @@ python main.py "PDU Session 建立过程中 AMF、SMF、UPF 分别做什么？"
 ```powershell
 python -m pytest -q -p no:cacheprovider
 ```
-# 5gc-agent
