@@ -1,6 +1,12 @@
 from __future__ import annotations
 
-from agent.schemas import AnalysisContext, FaultCaseHit, LogRuleHit, QuestionType
+from agent.schemas import (
+    AnalysisContext,
+    FaultCaseHit,
+    LogRuleHit,
+    QuestionType,
+    RouteDecision,
+)
 
 
 class Analyzer:
@@ -9,7 +15,12 @@ class Analyzer:
         self.case_base = case_base
         self.rule_base = rule_base
 
-    def analyze(self, question: str, question_type: QuestionType) -> AnalysisContext:
+    def analyze(
+        self,
+        question: str,
+        question_type: QuestionType,
+        route_decision: RouteDecision | None = None,
+    ) -> AnalysisContext:
         knowledge_hits = self.knowledge_base.search(question, top_k=3)
         if question_type == QuestionType.PROCEDURE:
             knowledge_hits = _prioritize_procedure_hits(knowledge_hits)
@@ -40,6 +51,9 @@ class Analyzer:
         return AnalysisContext(
             question=question,
             question_type=question_type,
+            selected_question_type=route_decision.selected_type if route_decision else None,
+            detected_question_type=route_decision.detected_type if route_decision else question_type,
+            route_warning=route_decision.warning if route_decision else None,
             knowledge_hits=knowledge_hits,
             case_hits=case_hits,
             rule_hits=rule_hits,

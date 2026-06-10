@@ -13,6 +13,15 @@ class QuestionType(str, Enum):
 
 
 @dataclass(frozen=True)
+class RouteDecision:
+    selected_type: QuestionType | None
+    detected_type: QuestionType
+    final_type: QuestionType
+    mismatch: bool = False
+    warning: str | None = None
+
+
+@dataclass(frozen=True)
 class KnowledgeHit:
     title: str
     source: str
@@ -49,6 +58,9 @@ class LogRuleHit:
 class AnalysisContext:
     question: str
     question_type: QuestionType
+    selected_question_type: QuestionType | None = None
+    detected_question_type: QuestionType | None = None
+    route_warning: str | None = None
     knowledge_hits: list[KnowledgeHit] = field(default_factory=list)
     case_hits: list[FaultCaseHit] = field(default_factory=list)
     rule_hits: list[LogRuleHit] = field(default_factory=list)

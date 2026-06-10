@@ -13,6 +13,8 @@ from config import load_env_file
 PAGE_TITLE = "面向 5G 核心网的知识查询与故障排查 Agent"
 DEFAULT_QUESTION = ""
 QUESTION_STATE_KEY = "question"
+SHOW_EXAMPLE_BUTTONS = False
+MAX_UPLOAD_CHARS = 12000
 ACTION_LABELS = {
     QuestionType.AUTO.value: ("生成回答", "回答结果", "正在生成回答..."),
     QuestionType.KNOWLEDGE.value: ("生成知识回答", "知识回答", "正在生成知识回答..."),
@@ -61,12 +63,69 @@ def example_questions(question_type: str) -> tuple[tuple[str, str], ...]:
     return EXAMPLE_QUESTIONS.get(question_type, EXAMPLE_QUESTIONS[QuestionType.AUTO.value])
 
 
+def decode_uploaded_bytes(
+    content: bytes,
+    max_chars: int = MAX_UPLOAD_CHARS,
+) -> tuple[str, str | None]:
+    warning = None
+    for encoding in ("utf-8", "gbk"):
+        try:
+            text = content.decode(encoding)
+            break
+        except UnicodeDecodeError:
+            continue
+    else:
+        text = content.decode("utf-8", errors="replace")
+
+    text = text.replace("\x00", "").strip()
+    if len(text) > max_chars:
+        text = text[:max_chars]
+        warning = f"上传文件内容较长，已截取前 {max_chars} 个字符用于分析。"
+    return text, warning
+
+
+def build_user_input(
+    question: str,
+    uploaded_text: str | None = None,
+    uploaded_filename: str | None = None,
+) -> str:
+    parts: list[str] = []
+    stripped_question = question.strip()
+    if stripped_question:
+        parts.append(stripped_question)
+
+    if uploaded_text and uploaded_text.strip():
+        filename = uploaded_filename or "uploaded-file"
+        parts.append(f"上传文件：{filename}\n{uploaded_text.strip()}")
+
+    return "\n\n".join(parts)
+
+
 def evidence_counts(context: AnalysisContext) -> dict[str, int]:
     return {
         "knowledge": len(context.knowledge_hits),
         "cases": len(context.case_hits),
         "rules": len(context.rule_hits),
     }
+
+
+def route_summary_items(context: AnalysisContext) -> dict[str, str]:
+    items = {
+        "用户选择": (
+            context.selected_question_type.value
+            if context.selected_question_type
+            else QuestionType.AUTO.value
+        ),
+        "系统识别": (
+            context.detected_question_type.value
+            if context.detected_question_type
+            else context.question_type.value
+        ),
+        "最终采用": context.question_type.value,
+    }
+    if context.route_warning:
+        items["纠偏提示"] = context.route_warning
+    return items
 
 
 def build_export_markdown(report: AgentReport) -> str:
@@ -77,6 +136,12 @@ def build_export_markdown(report: AgentReport) -> str:
         f"- 问题类型：{report.context.question_type.value}",
         f"- 用户问题：{report.context.question}",
     ]
+    if report.context.selected_question_type:
+        lines.append(f"- 用户选择类型：{report.context.selected_question_type.value}")
+    if report.context.detected_question_type:
+        lines.append(f"- 系统识别类型：{report.context.detected_question_type.value}")
+    if report.context.route_warning:
+        lines.append(f"- 模式提示：{report.context.route_warning}")
     if report.llm_error:
         lines.append(f"- 降级原因：{report.llm_error}")
 
@@ -106,6 +171,8 @@ def _ensure_question_state() -> None:
 
 
 def _render_example_buttons(question_type: str) -> None:
+    if not SHOW_EXAMPLE_BUTTONS:
+        return
     examples = example_questions(question_type)
     cols = st.columns(len(examples))
     for index, (label, question) in enumerate(examples):
@@ -131,6 +198,20 @@ def main() -> None:
         [question_type.value for question_type in QuestionType],
     )
     _render_example_buttons(question_type)
+    uploaded_file = st.file_uploader(
+        "上传日志/文本文件",
+        type=["log", "txt", "json", "yaml", "yml"],
+        accept_multiple_files=False,
+        help="支持上传日志、JSON 或 YAML 文本文件；文件内容会和问题描述一起分析。",
+    )
+    uploaded_text = None
+    upload_warning = None
+    if uploaded_file is not None:
+        uploaded_text, upload_warning = decode_uploaded_bytes(uploaded_file.getvalue())
+        st.caption(f"已读取上传文件：{uploaded_file.name}")
+        if upload_warning:
+            st.warning(upload_warning)
+
     question = st.text_area(
         "问题描述",
         key=QUESTION_STATE_KEY,
@@ -139,13 +220,17 @@ def main() -> None:
     button_label, selected_report_title, spinner_text = action_labels(question_type)
 
     if st.button(button_label, type="primary"):
-        stripped_question = question.strip()
-        if not stripped_question:
-            st.warning("请输入问题描述。")
+        user_input = build_user_input(
+            question,
+            uploaded_text=uploaded_text,
+            uploaded_filename=uploaded_file.name if uploaded_file is not None else None,
+        )
+        if not user_input:
+            st.warning("请输入问题描述，或上传日志/文本文件。")
             return
 
         with st.spinner(spinner_text):
-            report = AgentPipeline().run(stripped_question, manual_type=question_type)
+            report = AgentPipeline().run(user_input, manual_type=question_type)
 
         if report.mode == "online":
             st.success("在线模式")
@@ -154,6 +239,8 @@ def main() -> None:
 
         if report.llm_error:
             st.info(f"降级原因：{report.llm_error}")
+        if report.context.route_warning:
+            st.warning(report.context.route_warning)
 
         report_col, evidence_col = st.columns(2)
         report_title = selected_report_title
@@ -162,6 +249,11 @@ def main() -> None:
 
         with report_col:
             st.subheader(report_title)
+            summary = route_summary_items(report.context)
+            summary_cols = st.columns(3)
+            summary_cols[0].metric("用户选择", summary["用户选择"])
+            summary_cols[1].metric("系统识别", summary["系统识别"])
+            summary_cols[2].metric("最终采用", summary["最终采用"])
             st.markdown(report.content)
 
         with evidence_col:

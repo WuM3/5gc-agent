@@ -47,6 +47,7 @@ def build_prompt(context: AnalysisContext) -> str:
         "在线模式必须严格依据命中的知识、案例和日志规则作答，避免编造证据之外的事实。\n\n"
         f"用户问题：{context.question}\n"
         f"问题类型：{context.question_type.value}\n\n"
+        f"{_route_prompt_section(context)}"
         "命中的知识片段\n"
         f"{format_knowledge_hits(context.knowledge_hits)}\n\n"
         "命中的故障案例\n"
@@ -65,6 +66,7 @@ def build_offline_report(
         return "\n".join(
             [
                 f"问题类型：{context.question_type.value}",
+                *_route_report_lines(context),
                 f"知识回答：{_knowledge_answer(context)}",
                 f"参考依据：{_references(context)}",
                 "运行模式：offline",
@@ -76,6 +78,7 @@ def build_offline_report(
         return "\n".join(
             [
                 f"问题类型：{context.question_type.value}",
+                *_route_report_lines(context),
                 f"流程说明：{_knowledge_answer(context)}",
                 f"涉及网元：{_join_values(context.network_functions, '请结合流程片段识别')}",
                 f"涉及接口：{_join_values(context.interfaces, '请结合流程片段识别')}",
@@ -89,6 +92,7 @@ def build_offline_report(
         return "\n".join(
             [
                 f"问题类型：{context.question_type.value}",
+                *_route_report_lines(context),
                 f"涉及网元：{_join_values(context.network_functions, '未识别明确网元')}",
                 f"涉及接口：{_join_values(context.interfaces, '未识别明确接口')}",
                 f"日志分析结果：{_diagnosis(context)}",
@@ -103,6 +107,7 @@ def build_offline_report(
     return "\n".join(
         [
             f"问题类型：{context.question_type.value}",
+            *_route_report_lines(context),
             f"涉及网元：{_join_values(context.network_functions, '未识别明确网元')}",
             f"涉及接口：{_join_values(context.interfaces, '未识别明确接口')}",
             f"诊断结论：{_diagnosis(context)}",
@@ -113,6 +118,30 @@ def build_offline_report(
             f"降级原因：{_downgrade_reason(llm_result)}",
         ]
     )
+
+
+def _route_prompt_section(context: AnalysisContext) -> str:
+    lines: list[str] = []
+    if context.selected_question_type:
+        lines.append(f"用户选择类型：{context.selected_question_type.value}")
+    if context.detected_question_type:
+        lines.append(f"系统识别类型：{context.detected_question_type.value}")
+    if context.route_warning:
+        lines.append(f"模式提示：{context.route_warning}")
+    if not lines:
+        return ""
+    return "\n".join(lines) + "\n\n"
+
+
+def _route_report_lines(context: AnalysisContext) -> list[str]:
+    lines: list[str] = []
+    if context.selected_question_type:
+        lines.append(f"用户选择类型：{context.selected_question_type.value}")
+    if context.detected_question_type:
+        lines.append(f"系统识别类型：{context.detected_question_type.value}")
+    if context.route_warning:
+        lines.append(f"模式提示：{context.route_warning}")
+    return lines
 
 
 def format_knowledge_hits(source: AnalysisContext | list[KnowledgeHit]) -> str:

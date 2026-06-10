@@ -1,4 +1,4 @@
-from agent.router import route_question
+from agent.router import resolve_question_type, route_question
 from agent.schemas import QuestionType
 
 
@@ -30,3 +30,30 @@ def test_routes_knowledge_question_as_default():
     result = route_question("AMF 和 SMF 的区别是什么？")
 
     assert result == QuestionType.KNOWLEDGE
+
+
+def test_resolve_question_type_corrects_mismatched_manual_selection():
+    decision = resolve_question_type(
+        "UE 注册成功但不能上网，应该怎么排查？",
+        manual_type="知识查询",
+    )
+
+    assert decision.selected_type == QuestionType.KNOWLEDGE
+    assert decision.detected_type == QuestionType.FAULT
+    assert decision.final_type == QuestionType.FAULT
+    assert decision.mismatch is True
+    assert "知识查询" in decision.warning
+    assert "故障诊断" in decision.warning
+
+
+def test_resolve_question_type_keeps_matching_manual_selection():
+    decision = resolve_question_type(
+        "PDU Session 建立流程经过哪些网元？",
+        manual_type="流程解释",
+    )
+
+    assert decision.selected_type == QuestionType.PROCEDURE
+    assert decision.detected_type == QuestionType.PROCEDURE
+    assert decision.final_type == QuestionType.PROCEDURE
+    assert decision.mismatch is False
+    assert decision.warning is None

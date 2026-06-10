@@ -88,14 +88,18 @@ def test_offline_knowledge_question_includes_matched_knowledge_snippet():
     assert "用户面" in report.content
 
 
-def test_manual_type_override_is_kept_in_pipeline_context():
+def test_pipeline_corrects_mismatched_manual_type_in_context():
     from agent.pipeline import AgentPipeline
 
     pipeline = AgentPipeline(root_dir=PROJECT_ROOT, llm_client=FakeOfflineLLM())
 
     report = pipeline.run("AMF 的作用是什么？", manual_type="故障诊断")
 
-    assert report.context.question_type.value == "故障诊断"
+    assert report.context.question_type.value == "知识查询"
+    assert report.context.selected_question_type.value == "故障诊断"
+    assert report.context.detected_question_type.value == "知识查询"
+    assert report.context.route_warning
+    assert "模式提示：" in report.content
 
 
 def test_manual_knowledge_query_searches_only_knowledge_sources():
@@ -106,11 +110,12 @@ def test_manual_knowledge_query_searches_only_knowledge_sources():
 
     report = pipeline.run("SMF 日志中出现 DNN not supported", manual_type="知识查询")
 
-    assert report.context.question_type.value == "知识查询"
+    assert report.context.question_type.value == "日志分析"
     assert report.context.knowledge_hits
-    assert report.context.case_hits == []
-    assert report.context.rule_hits == []
-    assert "知识回答" in llm.prompts[0]
+    assert report.context.case_hits
+    assert report.context.rule_hits
+    assert report.context.route_warning
+    assert "日志分析结果" in llm.prompts[0]
 
 
 def test_manual_procedure_query_prefers_procedure_knowledge():
